@@ -1,5 +1,6 @@
 require("dotenv").config();
 import jwt from "jsonwebtoken";
+import axios from "axios";
 const nonSecurePaths = ["/"];
 
 const extractToken = (req) => {
@@ -12,7 +13,7 @@ const extractToken = (req) => {
   return null;
 };
 
-const checkUserJWT = (req, res, next) => {
+const checkUserJWT = async (req, res, next) => {
   if (nonSecurePaths.includes(req.path)) return next();
 
   // let cookies = req.cookies;
@@ -20,7 +21,17 @@ const checkUserJWT = (req, res, next) => {
   console.log(">>>> check token", tokenFromHeader);
   if (tokenFromHeader) {
     let access_token = tokenFromHeader;
-    next();
+    axios.defaults.headers.common["Authorization"] = `Bearer ${access_token}`;
+
+    let resAPI = await axios.post(process.env.API_SSO_VERIFY_ACCESS_TOKEN);
+    if (resAPI && resAPI.data && +resAPI.data.EC === 0) {
+      next();
+    } else
+      res.status(401).json({
+        EC: -1,
+        DT: "",
+        EM: "Not authenticated the user",
+      });
     // let decode = verifyToken(access_token);
 
     // if (decode) {
@@ -39,10 +50,10 @@ const checkUserJWT = (req, res, next) => {
 
     // console.log("jwt:", cookies.jwt);
   } else {
-    return res.status(401).json({
+    return res.status(400).json({
       EC: -1,
       DT: "",
-      EM: "Not authenticaed the 2",
+      EM: "Not provide auth header token",
     });
   }
 };
